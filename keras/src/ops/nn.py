@@ -20,6 +20,8 @@ from keras.src.utils.python_utils import is_continuous_axis
 
 def _normalize_log_softmax_axis(x, axis):
     """Validate `axis` and canonicalize indices when input rank is known."""
+    if axis is None:
+        return -1
     ndim = operation_utils.get_static_tensor_ndim(x)
     if isinstance(axis, int):
         if ndim is not None:
@@ -39,6 +41,15 @@ def _normalize_log_softmax_axis(x, axis):
         "Argument `axis` must be an integer or tuple of integers. "
         f"Received: axis={axis}"
     )
+
+
+def _normalize_axis_for_loss(output, axis):
+    if not isinstance(axis, int):
+        raise TypeError(f"Argument `axis` must be an integer. Received: axis={axis}")
+    ndim = operation_utils.get_static_tensor_ndim(output)
+    if ndim is not None:
+        return canonicalize_axis(axis, ndim)
+    return axis
 
 
 class Relu(Operation):
@@ -2231,10 +2242,13 @@ def sparse_categorical_crossentropy(target, output, from_logits=False, axis=-1):
     >>> sparse_categorical_crossentropy(target, output)
     array([0.10536056 0.22314355 0.6931472 ], shape=(3,), dtype=float32)
     """
+    axis = _normalize_axis_for_loss(output, axis)
     if any_symbolic_tensors((target, output)):
         return SparseCategoricalCrossentropy(
             from_logits=from_logits, axis=axis
         ).symbolic_call(target, output)
+    output = backend.convert_to_tensor(output)
+    axis = _normalize_axis_for_loss(output, axis)
     return backend.nn.sparse_categorical_crossentropy(
         target, output, from_logits=from_logits, axis=axis
     )
