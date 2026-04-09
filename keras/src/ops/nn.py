@@ -45,7 +45,9 @@ def _normalize_log_softmax_axis(x, axis):
 
 def _normalize_axis_for_loss(output, axis):
     if not isinstance(axis, int):
-        raise TypeError(f"Argument `axis` must be an integer. Received: axis={axis}")
+        raise TypeError(
+            f"Argument `axis` must be an integer. Received: axis={axis}"
+        )
     ndim = operation_utils.get_static_tensor_ndim(output)
     if ndim is not None:
         return canonicalize_axis(axis, ndim)
