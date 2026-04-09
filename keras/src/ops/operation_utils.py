@@ -393,7 +393,6 @@ def reduce_shape(shape, axis=None, keepdims=False):
         return tuple(shape)
 
 
-@keras_export("keras.utils.get_source_inputs")
 def get_static_tensor_ndim(x):
     """Return the static rank of `x` when known, else `None`.
 
@@ -412,6 +411,7 @@ def get_static_tensor_ndim(x):
         return None
 
 
+@keras_export("keras.utils.get_source_inputs")
 def get_source_inputs(tensor):
     """Returns the list of input tensors necessary to compute `tensor`.
 
