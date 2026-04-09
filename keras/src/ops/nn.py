@@ -21,7 +21,7 @@ from keras.src.utils.python_utils import is_continuous_axis
 def _normalize_log_softmax_axis(x, axis):
     """Validate `axis` and canonicalize indices when input rank is known."""
     if axis is None:
-        return -1
+        return None
     ndim = operation_utils.get_static_tensor_ndim(x)
     if isinstance(axis, int):
         if ndim is not None:
@@ -49,6 +49,13 @@ def _normalize_axis_for_loss(output, axis):
             f"Argument `axis` must be an integer. Received: axis={axis}"
         )
     ndim = operation_utils.get_static_tensor_ndim(output)
+    if (
+        backend.is_keras_tensor(output)
+        and hasattr(output, "_keras_history")
+        and output._keras_history.operation.__class__.__name__ == "InputLayer"
+        and ndim is not None
+    ):
+        ndim -= 1
     if ndim is not None:
         return canonicalize_axis(axis, ndim)
     return axis
@@ -1055,7 +1062,12 @@ def log_softmax(x, axis=-1):
     if any_symbolic_tensors((x,)):
         return LogSoftmax(axis).symbolic_call(x)
     x = backend.convert_to_tensor(x)
+    original_shape = x.shape
     axis = _normalize_log_softmax_axis(x, axis)
+    if axis is None:
+        x = backend.numpy.reshape(x, (-1,))
+        x = backend.nn.log_softmax(x, axis=-1)
+        return backend.numpy.reshape(x, original_shape)
     if isinstance(axis, tuple):
         shape = getattr(x, "shape", None)
         if shape is None:

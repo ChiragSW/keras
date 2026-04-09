@@ -10,13 +10,13 @@ from keras.src.ops.operation_utils import compute_conv_output_shape
 def _validate_image_input_rank_for_keras_input(images):
     if (
         backend.is_keras_tensor(images)
-        and len(images.shape) == 3
         and hasattr(images, "_keras_history")
-        and getattr(images._keras_history.operation, "is_input", False)
+        and images._keras_history.operation.__class__.__name__ == "InputLayer"
+        and len(images.shape) - 1 not in (3, 4)
     ):
         raise ValueError(
-            "Invalid images rank: expected rank 4 for a Keras Input image "
-            "batch. Received input with shape: "
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). Received input with shape: "
             f"images.shape={images.shape}"
         )
 
