@@ -9,6 +9,7 @@ from keras.src.backend import any_symbolic_tensors
 from keras.src.backend import config
 from keras.src.backend import standardize_data_format
 from keras.src.backend.common.backend_utils import canonicalize_axis
+from keras.src.backend.common.backend_utils import canonicalize_axes
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_output_shape,
 )
@@ -23,22 +24,20 @@ def _normalize_log_softmax_axis(x, axis):
     if axis is None:
         return None
     ndim = operation_utils.get_static_tensor_ndim(x)
+    if ndim is not None:
+        return canonicalize_axes(axis, ndim)
     if isinstance(axis, int):
-        if ndim is not None:
-            return canonicalize_axis(axis, ndim)
         return axis
-    if isinstance(axis, tuple):
+    if isinstance(axis, (tuple, list)):
         for a in axis:
             if not isinstance(a, int):
                 raise TypeError(
-                    "Argument `axis` must be an integer or tuple of "
+                    "Argument `axis` must be an integer or a sequence of "
                     f"integers. Received: axis={axis}"
                 )
-        if ndim is not None:
-            return tuple(canonicalize_axis(a, ndim) for a in axis)
-        return axis
+        return tuple(axis)
     raise TypeError(
-        "Argument `axis` must be an integer or tuple of integers. "
+        "Argument `axis` must be an integer or a sequence of integers. "
         f"Received: axis={axis}"
     )
 
@@ -49,13 +48,6 @@ def _normalize_axis_for_loss(output, axis):
             f"Argument `axis` must be an integer. Received: axis={axis}"
         )
     ndim = operation_utils.get_static_tensor_ndim(output)
-    if (
-        backend.is_keras_tensor(output)
-        and hasattr(output, "_keras_history")
-        and output._keras_history.operation.__class__.__name__ == "InputLayer"
-        and ndim is not None
-    ):
-        ndim -= 1
     if ndim is not None:
         return canonicalize_axis(axis, ndim)
     return axis

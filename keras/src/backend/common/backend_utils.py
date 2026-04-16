@@ -302,6 +302,35 @@ def canonicalize_axis(axis, num_dims):
     return axis
 
 
+def canonicalize_axes(axis, num_dims):
+    """Validate/canonicalize `axis` to a tuple of integers.
+
+    Args:
+        axis: Integer axis or a sequence of integer axes.
+        num_dims: Rank of the target tensor.
+
+    Returns:
+        A tuple of canonicalized non-negative axis indices.
+    """
+    if isinstance(axis, int):
+        axis = (axis,)
+    elif isinstance(axis, (tuple, list)):
+        axis = tuple(axis)
+    else:
+        raise TypeError(
+            "Argument `axis` must be an integer or a sequence of integers. "
+            f"Received: axis={axis}"
+        )
+
+    for a in axis:
+        if not isinstance(a, int):
+            raise TypeError(
+                "Argument `axis` must be an integer or a sequence of "
+                f"integers. Received: axis={axis}"
+            )
+    return tuple(canonicalize_axis(a, num_dims) for a in axis)
+
+
 def standardize_axis_for_numpy(axis):
     """Standardize an axis to a tuple if it is a list in the numpy backend."""
     return tuple(axis) if isinstance(axis, list) else axis
