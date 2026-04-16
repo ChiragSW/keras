@@ -82,7 +82,14 @@ def get_random_seed():
 
 
 def consume_default_initializer_seed():
-    """Returns the next deterministic default initializer seed."""
+    """Returns the next deterministic default initializer seed.
+
+    Default initializers request integer seeds through
+    `seed_generator.make_default_seed()`. When users call
+    `keras.utils.set_random_seed()`, this counter ensures that those implicit
+    initializer seeds are replayable across runs, independently from how many
+    NumPy random draws happened before layer construction.
+    """
     seed = global_state.get_global_attribute(GLOBAL_DEFAULT_INITIALIZER_SEED)
     if seed is None:
         seed = get_random_seed()
