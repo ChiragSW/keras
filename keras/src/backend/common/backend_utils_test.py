@@ -7,13 +7,13 @@ from keras.src.backend.common.backend_utils import (
 from keras.src.backend.common.backend_utils import (
     _get_output_shape_given_tf_padding,
 )
+from keras.src.backend.common.backend_utils import canonicalize_axes
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_padding_args_for_jax,
 )
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_padding_args_for_torch,
 )
-from keras.src.backend.common.backend_utils import canonicalize_axes
 from keras.src.testing import test_case
 
 
@@ -170,7 +170,6 @@ class ComputeConvTransposePaddingArgsForTorchTest(test_case.TestCase):
         )
         self.assertEqual(torch_padding, 0)
         self.assertEqual(torch_output_padding, 1)
-
 
     def test_output_padding_clamped_for_torch_constraint(self):
         """Test that output_padding is clamped
