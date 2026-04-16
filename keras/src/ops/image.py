@@ -7,6 +7,20 @@ from keras.src.ops.operation import Operation
 from keras.src.ops.operation_utils import compute_conv_output_shape
 
 
+def _validate_image_input_rank_for_keras_input(images):
+    if (
+        backend.is_keras_tensor(images)
+        and hasattr(images, "_keras_history")
+        and images._keras_history.operation.__class__.__name__ == "InputLayer"
+        and len(images.shape) - 1 not in (3, 4)
+    ):
+        raise ValueError(
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). Received input with shape: "
+            f"images.shape={images.shape}"
+        )
+
+
 class RGBToGrayscale(Operation):
     def __init__(self, data_format=None, *, name=None):
         super().__init__(name=name)
@@ -1047,6 +1061,12 @@ class PadImages(Operation):
 
     def compute_output_spec(self, images):
         images_shape = list(images.shape)
+        if len(images_shape) not in (3, 4):
+            raise ValueError(
+                f"Invalid shape for argument `images`: "
+                "it must have rank 3 or 4. "
+                f"Received: images.shape={images_shape}"
+            )
 
         if self.data_format == "channels_last":
             height_axis, width_axis = -3, -2
@@ -1115,6 +1135,24 @@ def pad_images(
     >>> padded_batch.shape
     (2, 20, 30, 3)"""
 
+    if [top_padding, bottom_padding, target_height].count(None) != 1:
+        raise ValueError(
+            "Must specify exactly two of "
+            "top_padding, bottom_padding, target_height. "
+            f"Received: top_padding={top_padding}, "
+            f"bottom_padding={bottom_padding}, "
+            f"target_height={target_height}"
+        )
+    if [left_padding, right_padding, target_width].count(None) != 1:
+        raise ValueError(
+            "Must specify exactly two of "
+            "left_padding, right_padding, target_width. "
+            f"Received: left_padding={left_padding}, "
+            f"right_padding={right_padding}, "
+            f"target_width={target_width}"
+        )
+
+    _validate_image_input_rank_for_keras_input(images)
     if any_symbolic_tensors((images,)):
         return PadImages(
             top_padding,
@@ -1260,6 +1298,12 @@ class CropImages(Operation):
 
     def compute_output_spec(self, images):
         images_shape = list(images.shape)
+        if len(images_shape) not in (3, 4):
+            raise ValueError(
+                f"Invalid shape for argument `images`: "
+                "it must have rank 3 or 4. "
+                f"Received: images.shape={images_shape}"
+            )
 
         if self.data_format == "channels_last":
             height_axis, width_axis = -3, -2
@@ -1288,6 +1332,56 @@ class CropImages(Operation):
         target_width = self.target_width
         if target_width is None:
             target_width = width - self.left_cropping - self.right_cropping
+
+        if height is not None:
+            top_cropping = self.top_cropping
+            bottom_cropping = self.bottom_cropping
+            if top_cropping is None:
+                top_cropping = height - target_height - bottom_cropping
+            if bottom_cropping is None:
+                bottom_cropping = height - target_height - top_cropping
+            if target_height is None:
+                target_height = height - top_cropping - bottom_cropping
+            if top_cropping < 0:
+                raise ValueError(
+                    "top_cropping must be >= 0. "
+                    f"Received: top_cropping={top_cropping}"
+                )
+            if bottom_cropping < 0:
+                raise ValueError(
+                    "bottom_cropping must be >= 0. "
+                    f"Received: bottom_cropping={bottom_cropping}"
+                )
+            if target_height < 0:
+                raise ValueError(
+                    "target_height must be >= 0. "
+                    f"Received: target_height={target_height}"
+                )
+
+        if width is not None:
+            left_cropping = self.left_cropping
+            right_cropping = self.right_cropping
+            if left_cropping is None:
+                left_cropping = width - target_width - right_cropping
+            if right_cropping is None:
+                right_cropping = width - target_width - left_cropping
+            if target_width is None:
+                target_width = width - left_cropping - right_cropping
+            if left_cropping < 0:
+                raise ValueError(
+                    "left_cropping must be >= 0. "
+                    f"Received: left_cropping={left_cropping}"
+                )
+            if right_cropping < 0:
+                raise ValueError(
+                    "right_cropping must be >= 0. "
+                    f"Received: right_cropping={right_cropping}"
+                )
+            if target_width < 0:
+                raise ValueError(
+                    "target_width must be >= 0. "
+                    f"Received: target_width={target_width}"
+                )
 
         images_shape[height_axis] = target_height
         images_shape[width_axis] = target_width
@@ -1338,6 +1432,24 @@ def crop_images(
     array([[ 1.,  4.],
            [10., 13.]], dtype=float32)"""
 
+    if [top_cropping, bottom_cropping, target_height].count(None) != 1:
+        raise ValueError(
+            "Must specify exactly two of "
+            "top_cropping, bottom_cropping, target_height. "
+            f"Received: top_cropping={top_cropping}, "
+            f"bottom_cropping={bottom_cropping}, "
+            f"target_height={target_height}"
+        )
+    if [left_cropping, right_cropping, target_width].count(None) != 1:
+        raise ValueError(
+            "Must specify exactly two of "
+            "left_cropping, right_cropping, target_width. "
+            f"Received: left_cropping={left_cropping}, "
+            f"right_cropping={right_cropping}, "
+            f"target_width={target_width}"
+        )
+
+    _validate_image_input_rank_for_keras_input(images)
     if any_symbolic_tensors((images,)):
         return CropImages(
             top_cropping,
