@@ -9,6 +9,7 @@ from keras.src.random import seed_generator
 from keras.src.utils.module_utils import tensorflow as tf
 
 GLOBAL_RANDOM_SEED = "global_random_seed"
+GLOBAL_DEFAULT_INITIALIZER_SEED = "global_default_initializer_seed"
 
 
 @keras_export("keras.utils.set_random_seed")
@@ -56,6 +57,7 @@ def set_random_seed(seed):
 
     # Store seed in global state so we can query it if set.
     global_state.set_global_attribute(GLOBAL_RANDOM_SEED, seed)
+    global_state.set_global_attribute(GLOBAL_DEFAULT_INITIALIZER_SEED, seed)
     # Remove global SeedGenerator, it will be recreated from the seed.
     global_state.set_global_attribute(
         seed_generator.GLOBAL_SEED_GENERATOR, None
@@ -77,3 +79,16 @@ def get_random_seed():
     returns the seed.  Otherwise, returns `None`.
     """
     return global_state.get_global_attribute(GLOBAL_RANDOM_SEED)
+
+
+def consume_default_initializer_seed():
+    """Returns the next deterministic default initializer seed."""
+    seed = global_state.get_global_attribute(GLOBAL_DEFAULT_INITIALIZER_SEED)
+    if seed is None:
+        seed = get_random_seed()
+    if seed is None:
+        seed = int(np.random.randint(1, int(1e9)))
+    global_state.set_global_attribute(
+        GLOBAL_DEFAULT_INITIALIZER_SEED, int(seed) + 1
+    )
+    return int(seed)
