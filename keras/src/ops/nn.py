@@ -8,6 +8,7 @@ from keras.src.backend import KerasTensor
 from keras.src.backend import any_symbolic_tensors
 from keras.src.backend import config
 from keras.src.backend import standardize_data_format
+from keras.src.backend.common.backend_utils import canonicalize_axis
 from keras.src.backend.common.backend_utils import (
     compute_conv_transpose_output_shape,
 )
@@ -15,6 +16,49 @@ from keras.src.ops import operation_utils
 from keras.src.ops.operation import Operation
 from keras.src.ops.operation_utils import reduce_shape
 from keras.src.utils.python_utils import is_continuous_axis
+
+
+def _normalize_log_softmax_axis(x, axis):
+    """Validate `axis` and canonicalize indices when input rank is known."""
+    if axis is None:
+        return None
+    ndim = operation_utils.get_static_tensor_ndim(x)
+    if isinstance(axis, int):
+        if ndim is not None:
+            return canonicalize_axis(axis, ndim)
+        return axis
+    if isinstance(axis, tuple):
+        for a in axis:
+            if not isinstance(a, int):
+                raise TypeError(
+                    "Argument `axis` must be an integer or tuple of "
+                    f"integers. Received: axis={axis}"
+                )
+        if ndim is not None:
+            return tuple(canonicalize_axis(a, ndim) for a in axis)
+        return axis
+    raise TypeError(
+        "Argument `axis` must be an integer or tuple of integers. "
+        f"Received: axis={axis}"
+    )
+
+
+def _normalize_axis_for_loss(output, axis):
+    if not isinstance(axis, int):
+        raise TypeError(
+            f"Argument `axis` must be an integer. Received: axis={axis}"
+        )
+    ndim = operation_utils.get_static_tensor_ndim(output)
+    if (
+        backend.is_keras_tensor(output)
+        and hasattr(output, "_keras_history")
+        and output._keras_history.operation.__class__.__name__ == "InputLayer"
+        and ndim is not None
+    ):
+        ndim -= 1
+    if ndim is not None:
+        return canonicalize_axis(axis, ndim)
+    return axis
 
 
 class Relu(Operation):
@@ -1014,9 +1058,23 @@ def log_softmax(x, axis=-1):
     array([-2.40760596, -1.40760596, -0.40760596], shape=(3,), dtype=float64)
 
     """
+    axis = _normalize_log_softmax_axis(x, axis)
     if any_symbolic_tensors((x,)):
         return LogSoftmax(axis).symbolic_call(x)
+    x = backend.convert_to_tensor(x)
+    original_shape = x.shape
+    axis = _normalize_log_softmax_axis(x, axis)
+    if axis is None:
+        x = backend.numpy.reshape(x, (-1,))
+        x = backend.nn.log_softmax(x, axis=-1)
+        return backend.numpy.reshape(x, original_shape)
     if isinstance(axis, tuple):
+        shape = getattr(x, "shape", None)
+        if shape is None:
+            raise ValueError(
+                "Argument `axis` as a tuple requires a known input rank. "
+                "Received: x.shape=None"
+            )
         axis_to_keep = [v for v in range(len(x.shape)) if v not in axis]
 
         x_transposed = backend.numpy.transpose(x, axes=(*axis_to_keep, *axis))
@@ -1074,8 +1132,19 @@ def sparsemax(x, axis=-1):
     array([0., 0., 1.], shape=(3,), dtype=float64)
 
     """
+    if not isinstance(axis, int):
+        raise TypeError(
+            f"Argument `axis` must be an integer. Received: axis={axis}"
+        )
+    ndim = operation_utils.get_static_tensor_ndim(x)
+    if ndim is not None:
+        axis = canonicalize_axis(axis, ndim)
     if any_symbolic_tensors((x,)):
         return Sparsemax(axis).symbolic_call(x)
+    x = backend.convert_to_tensor(x)
+    ndim = operation_utils.get_static_tensor_ndim(x)
+    if ndim is not None:
+        axis = canonicalize_axis(axis, ndim)
     return backend.nn.sparsemax(x, axis=axis)
 
 
@@ -2124,16 +2193,21 @@ class SparseCategoricalCrossentropy(Operation):
                 "Received: "
                 f"output.shape={output.shape}"
             )
+        ndim = len(output.shape)
+        axis = canonicalize_axis(self.axis, ndim)
         target_shape = target.shape
         if len(target_shape) == len(output.shape) and target_shape[-1] == 1:
             target_shape = target_shape[:-1]
-        if target_shape != output.shape[:-1]:
+        output_shape_without_class = (
+            output.shape[:axis] + output.shape[axis + 1 :]
+        )
+        if target_shape != output_shape_without_class:
             raise ValueError(
                 "Arguments `target` and `output` must have the same shape "
                 "up until the last dimension: "
                 f"target.shape={target.shape}, output.shape={output.shape}"
             )
-        return KerasTensor(output.shape[:-1], dtype=output.dtype)
+        return KerasTensor(output_shape_without_class, dtype=output.dtype)
 
 
 @keras_export(
@@ -2182,10 +2256,13 @@ def sparse_categorical_crossentropy(target, output, from_logits=False, axis=-1):
     >>> sparse_categorical_crossentropy(target, output)
     array([0.10536056 0.22314355 0.6931472 ], shape=(3,), dtype=float32)
     """
+    axis = _normalize_axis_for_loss(output, axis)
     if any_symbolic_tensors((target, output)):
         return SparseCategoricalCrossentropy(
             from_logits=from_logits, axis=axis
         ).symbolic_call(target, output)
+    output = backend.convert_to_tensor(output)
+    axis = _normalize_axis_for_loss(output, axis)
     return backend.nn.sparse_categorical_crossentropy(
         target, output, from_logits=from_logits, axis=axis
     )
