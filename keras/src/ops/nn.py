@@ -2247,8 +2247,15 @@ def sparse_categorical_crossentropy(target, output, from_logits=False, axis=-1):
     >>> sparse_categorical_crossentropy(target, output)
     array([0.10536056 0.22314355 0.6931472 ], shape=(3,), dtype=float32)
     """
-    axis = _normalize_axis_for_loss(output, axis)
     if any_symbolic_tensors((target, output)):
+        if not isinstance(axis, int):
+            raise TypeError(
+                f"Argument `axis` must be an integer. Received: axis={axis}"
+            )
+        if axis != -1:
+            raise ValueError(
+                f"Only axis=-1 is currently supported. Received: axis={axis}"
+            )
         return SparseCategoricalCrossentropy(
             from_logits=from_logits, axis=axis
         ).symbolic_call(target, output)
