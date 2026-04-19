@@ -18,6 +18,17 @@ from keras.src.ops.operation_utils import get_static_tensor_ndim
 from keras.src.ops.operation_utils import reduce_shape
 
 
+def _prepend_q_shape_to_reduced_shape(output_shape, q):
+    q_shape = getattr(q, "shape", None)
+    if q_shape is None:
+        q_shape = np.shape(q)
+    else:
+        q_shape = tuple(q_shape)
+    if len(q_shape) == 0:
+        return tuple(output_shape)
+    return tuple(q_shape) + tuple(output_shape)
+
+
 class Rot90(Operation):
     def __init__(self, k=1, axes=(0, 1), *, name=None):
         super().__init__(name=name)
@@ -998,12 +1009,9 @@ class Argmax(Operation):
         return backend.numpy.argmax(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        if self.keepdims:
-            return KerasTensor(x.shape, dtype="int32")
-        if self.axis is None:
-            return KerasTensor([], dtype="int32")
         return KerasTensor(
-            reduce_shape(x.shape, axis=[self.axis]), dtype="int32"
+            reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
+            dtype="int32",
         )
 
 
@@ -1049,12 +1057,9 @@ class Argmin(Operation):
         return backend.numpy.argmin(x, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_spec(self, x):
-        if self.keepdims:
-            return KerasTensor(x.shape, dtype="int32")
-        if self.axis is None:
-            return KerasTensor([], dtype="int32")
         return KerasTensor(
-            reduce_shape(x.shape, axis=[self.axis]), dtype="int32"
+            reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
+            dtype="int32",
         )
 
 
@@ -2263,11 +2268,13 @@ class Cross(Operation):
     def compute_output_spec(self, x1, x2):
         x1_shape = list(x1.shape)
         x2_shape = list(x2.shape)
+        axisa = canonicalize_axis(self.axisa, len(x1_shape))
+        axisb = canonicalize_axis(self.axisb, len(x2_shape))
 
-        x1_value_size = x1_shape[self.axisa]
-        x2_value_size = x2_shape[self.axisa]
-        del x1_shape[self.axisa]
-        del x2_shape[self.axisb]
+        x1_value_size = x1_shape[axisa]
+        x2_value_size = x2_shape[axisb]
+        del x1_shape[axisa]
+        del x2_shape[axisb]
         output_shape = broadcast_shapes(x1_shape, x2_shape)
 
         if x1_value_size is not None and x1_value_size not in (2, 3):
@@ -2286,9 +2293,13 @@ class Cross(Operation):
         else:
             value_size = []
 
-        output_shape = (
-            output_shape[: self.axisc] + value_size + output_shape[self.axisc :]
-        )
+        if value_size:
+            axisc = canonicalize_axis(
+                self.axisc, len(output_shape) + len(value_size)
+            )
+            output_shape = (
+                output_shape[:axisc] + value_size + output_shape[axisc:]
+            )
 
         dtype = dtypes.result_type(x1.dtype, x2.dtype)
         return KerasTensor(output_shape, dtype=dtype)
@@ -2665,10 +2676,17 @@ class Diagonal(Operation):
                 "`diagonal` requires an array of at least two dimensions, but "
                 f"`x` is of shape {x.shape}."
             )
+        axis1 = canonicalize_axis(self.axis1, len(x_shape))
+        axis2 = canonicalize_axis(self.axis2, len(x_shape))
+        if axis1 == axis2:
+            raise ValueError(
+                f"axis1 and axis2 cannot be the same. Received: axis1={axis1}, "
+                f"axis2={axis2}"
+            )
 
-        shape_2d = [x_shape[self.axis1], x_shape[self.axis2]]
-        x_shape[self.axis1] = -1
-        x_shape[self.axis2] = -1
+        shape_2d = [x_shape[axis1], x_shape[axis2]]
+        x_shape[axis1] = -1
+        x_shape[axis2] = -1
         output_shape = list(filter((-1).__ne__, x_shape))
         if None in shape_2d:
             diag_shape = [None]
@@ -5819,6 +5837,64 @@ def nanmean(x, axis=None, keepdims=False):
     return backend.numpy.nanmean(x, axis=axis, keepdims=keepdims)
 
 
+class Nanmedian(Operation):
+    def __init__(self, axis=None, keepdims=False, *, name=None):
+        super().__init__(name=name)
+        self.axis = axis
+        self.keepdims = keepdims
+
+    def call(self, x):
+        return backend.numpy.nanmedian(
+            x, axis=self.axis, keepdims=self.keepdims
+        )
+
+    def compute_output_spec(self, x):
+        dtype = dtypes.result_type(x.dtype, float)
+        return KerasTensor(
+            reduce_shape(x.shape, axis=self.axis, keepdims=self.keepdims),
+            dtype=dtype,
+        )
+
+
+@keras_export(["keras.ops.nanmedian", "keras.ops.numpy.nanmedian"])
+def nanmedian(x, axis=None, keepdims=False):
+    """Median of a tensor over the given axes, ignoring NaNs.
+
+    This function computes the median along the specified axis or axes,
+    skipping any NaN values. If all values along a reduced axis are NaN,
+    the result is NaN.
+
+    Args:
+        x: Input tensor.
+        axis: Axis or axes along which the median is computed.
+            If None (default), the median of the flattened tensor is returned.
+        keepdims: If True, the reduced axes are retained as dimensions
+            with size one. Defaults to False.
+
+    Returns:
+        Tensor with the median values, ignoring NaNs.
+
+    Examples:
+    >>> import numpy as np
+    >>> from keras import ops
+    >>> x = np.array([[1.0, np.nan, 3.0],
+    ...               [np.nan, 2.0, 1.0]])
+    >>> ops.nanmedian(x)
+    1.5
+
+    >>> ops.nanmedian(x, axis=1)
+    array([2., 1.5])
+
+    >>> ops.nanmedian(x, axis=1, keepdims=True)
+    array([[2. ],
+           [1.5]])
+    """
+    if any_symbolic_tensors((x,)):
+        return Nanmedian(axis=axis, keepdims=keepdims).symbolic_call(x)
+
+    return backend.numpy.nanmedian(x, axis=axis, keepdims=keepdims)
+
+
 class Nanmin(Operation):
     def __init__(self, axis=None, keepdims=False, *, name=None):
         super().__init__(name=name)
@@ -6044,9 +6120,7 @@ class Nanquantile(Operation):
         output_shape = reduce_shape(
             x.shape, axis=self.axis, keepdims=self.keepdims
         )
-        if hasattr(q, "shape"):
-            if len(q.shape) > 0:
-                output_shape = (q.shape[0],) + output_shape
+        output_shape = _prepend_q_shape_to_reduced_shape(output_shape, q)
 
         if backend.standardize_dtype(x.dtype) == "int64":
             dtype = backend.floatx()
@@ -6843,9 +6917,7 @@ class Quantile(Operation):
         output_shape = reduce_shape(
             x.shape, axis=self.axis, keepdims=self.keepdims
         )
-        if hasattr(q, "shape"):
-            if len(q.shape) > 0:
-                output_shape = (q.shape[0],) + output_shape
+        output_shape = _prepend_q_shape_to_reduced_shape(output_shape, q)
         if backend.standardize_dtype(x.dtype) == "int64":
             dtype = backend.floatx()
         else:
@@ -7983,14 +8055,12 @@ class Trace(Operation):
         )
 
     def compute_output_spec(self, x):
-        if getattr(x, "shape", None) is None:
+        ndim = get_static_tensor_ndim(x)
+        if ndim is None:
             raise ValueError(
                 "`trace` requires a known input rank for symbolic shape "
                 "inference. Received: x.shape=None"
             )
-        ndim = getattr(x.shape, "rank", None)
-        if ndim is None:
-            ndim = len(x.shape)
         axis1 = canonicalize_axis(self.axis1, ndim)
         axis2 = canonicalize_axis(self.axis2, ndim)
         if axis1 == axis2:
@@ -9623,4 +9693,157 @@ def array_split(x, indices_or_sections, axis=0):
 
     return backend.numpy.array_split(
         x, indices_or_sections=indices_or_sections, axis=axis
+    )
+
+
+class Unique(Operation):
+    def __init__(
+        self,
+        sorted=True,
+        return_inverse=False,
+        return_counts=False,
+        axis=None,
+        size=None,
+        fill_value=None,
+        *,
+        name=None,
+    ):
+        super().__init__(name=name)
+        self.sorted = sorted
+        self.return_inverse = return_inverse
+        self.return_counts = return_counts
+        self.axis = axis
+        self.size = size
+        self.fill_value = fill_value
+
+    def call(self, x):
+        return backend.numpy.unique(
+            x,
+            sorted=self.sorted,
+            return_inverse=self.return_inverse,
+            return_counts=self.return_counts,
+            axis=self.axis,
+            size=self.size,
+            fill_value=self.fill_value,
+        )
+
+    def compute_output_spec(self, x):
+        input_shape = list(x.shape)
+        u_dim = self.size if self.size is not None else None
+
+        if self.axis is None:
+            values_shape = (u_dim,)
+        else:
+            axis = canonicalize_axis(self.axis, len(input_shape))
+            values_shape = list(input_shape)
+            values_shape[axis] = u_dim
+
+        outputs = [KerasTensor(tuple(values_shape), dtype=x.dtype)]
+
+        if self.return_inverse:
+            if self.axis is None:
+                inv_shape = x.shape
+            else:
+                axis = canonicalize_axis(self.axis, len(input_shape))
+                inv_shape = (input_shape[axis],)
+            outputs.append(KerasTensor(tuple(inv_shape), dtype="int32"))
+
+        if self.return_counts:
+            outputs.append(KerasTensor((u_dim,), dtype="int32"))
+
+        if len(outputs) == 1:
+            return outputs[0]
+        return tuple(outputs)
+
+
+@keras_export(["keras.ops.unique", "keras.ops.numpy.unique"])
+def unique(
+    x,
+    sorted=True,
+    return_inverse=False,
+    return_counts=False,
+    axis=None,
+    size=None,
+    fill_value=None,
+):
+    """Finds the unique elements of a tensor.
+
+    This function returns the unique elements of an array, optionally sorted.
+    When `size` is provided, the output shape is fixed, making it compatible
+    with JIT compilation (e.g., JAX, TensorFlow Graph Mode).
+
+    Args:
+        x: Input tensor.
+        sorted: Whether to sort the unique elements in ascending order.
+            Defaults to `True`.
+        return_inverse: If `True`, also return the indices of the unique tensor
+            (for the specified axis, if provided) that can be used to
+            reconstruct `x`. Defaults to `False`.
+        return_counts: If `True`, also return the number of times each
+            unique item appears in `x`. Defaults to `False`.
+        axis: The axis to operate on. If `None`, `x` will be flattened.
+            If an integer, the subarrays indexed by the given axis will be
+            treated as the elements. Defaults to `None`.
+        size: Optional integer. If provided, the output will always have this
+            fixed size. If the number of unique elements is less than `size`,
+            the output will be padded with `fill_value`. If greater, the
+            output will be truncated.
+        fill_value: The value used to pad the output when `size` is specified
+            and there are fewer unique elements than `size`. Defaults to `0`.
+
+    Returns:
+        A tensor or a tuple of tensors.
+        - `unique_values`: The unique values. Shape is `(size,)` if `size` is
+          provided and `axis=None`.
+        - `unique_inverse` (optional): The indices to reconstruct the original
+          array. Only provided if `return_inverse` is `True`.
+        - `unique_counts` (optional): The number of occurrences of each unique
+          value. Only provided if `return_counts` is `True`.
+
+    Examples:
+
+    >>> x = keras.ops.convert_to_tensor([3, 1, 2, 1, 3, 2])
+    >>> keras.ops.unique(x)
+    array([1, 2, 3], dtype=int32)
+
+    Fixed size output with padding (JIT-compatible):
+
+    >>> x = keras.ops.convert_to_tensor([3, 1, 2, 1])
+    >>> values, counts = keras.ops.unique(x, size=5, fill_value=0,
+    ...                                   return_counts=True)
+    >>> values
+    array([1, 2, 3, 0, 0], dtype=int32)
+    >>> counts
+    array([2, 1, 1, 0, 0], dtype=int32)
+
+    Fixed size output with truncation:
+
+    >>> x = keras.ops.convert_to_tensor([3, 1, 2, 1])
+    >>> keras.ops.unique(x, size=2)
+    array([1, 2], dtype=int32)
+
+    Return unique rows of a 2D array:
+
+    >>> x = keras.ops.convert_to_tensor([[1, 0, 0], [0, 1, 0], [1, 0, 0]])
+    >>> keras.ops.unique(x, axis=0)
+    array([[0, 1, 0],
+           [1, 0, 0]], dtype=int32)
+    """
+    if any_symbolic_tensors((x,)):
+        return Unique(
+            sorted=sorted,
+            return_inverse=return_inverse,
+            return_counts=return_counts,
+            axis=axis,
+            size=size,
+            fill_value=fill_value,
+        ).symbolic_call(x)
+    return backend.numpy.unique(
+        backend.convert_to_tensor(x),
+        sorted=sorted,
+        return_inverse=return_inverse,
+        return_counts=return_counts,
+        axis=axis,
+        size=size,
+        fill_value=fill_value,
     )

@@ -179,6 +179,16 @@ class NumpyTwoInputOpsDynamicShapeTest(testing.TestCase):
         y = KerasTensor((None, 1, 2))
         self.assertEqual(knp.cross(x1, y).shape, (2, 3, 3))
         self.assertEqual(knp.cross(x2, y).shape, (None, 3))
+        self.assertEqual(
+            knp.cross(
+                KerasTensor((1, 3, 5)),
+                KerasTensor((7, 5, 3)),
+                axisa=1,
+                axisb=2,
+                axisc=-1,
+            ).shape,
+            (7, 5, 3),
+        )
 
     def test_einsum(self):
         x = KerasTensor((None, 3))
@@ -369,6 +379,15 @@ class NumpyTwoInputOpsDynamicShapeTest(testing.TestCase):
         self.assertEqual(
             knp.nanquantile(x, q, axis=1, keepdims=True).shape, (2, None, 1)
         )
+        self.assertEqual(
+            knp.nanquantile(x, [0.25, 0.75], axis=1).shape, (2, None)
+        )
+        self.assertEqual(
+            knp.nanquantile(
+                x, np.array([[0.25, 0.5], [0.75, 1.0]]), axis=1
+            ).shape,
+            (2, 2, None),
+        )
 
     def test_nextafter(self):
         x = KerasTensor((None, 3))
@@ -415,6 +434,11 @@ class NumpyTwoInputOpsDynamicShapeTest(testing.TestCase):
         self.assertEqual(
             knp.quantile(x, q, axis=1, keepdims=True).shape,
             (2, None, 1),
+        )
+        self.assertEqual(knp.quantile(x, [0.25, 0.75], axis=1).shape, (2, None))
+        self.assertEqual(
+            knp.quantile(x, np.array([[0.25, 0.5], [0.75, 1.0]]), axis=1).shape,
+            (2, 2, None),
         )
 
     def test_searchsorted(self):
@@ -1409,11 +1433,14 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
     def test_argmax(self):
         x = KerasTensor((None, 3))
         self.assertEqual(knp.argmax(x).shape, ())
-        self.assertEqual(knp.argmax(x, keepdims=True).shape, (None, 3))
+        self.assertEqual(knp.argmax(x, keepdims=True).shape, (1, 1))
 
         x = KerasTensor((None, 3, 3))
         self.assertEqual(knp.argmax(x, axis=1).shape, (None, 3))
-        self.assertEqual(knp.argmax(x, keepdims=True).shape, (None, 3, 3))
+        self.assertEqual(
+            knp.argmax(x, axis=1, keepdims=True).shape, (None, 1, 3)
+        )
+        self.assertEqual(knp.argmax(x, keepdims=True).shape, (1, 1, 1))
 
     @pytest.mark.skipif(
         keras.config.backend() == "openvino" or testing.jax_uses_tpu(),
@@ -1445,11 +1472,14 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
     def test_argmin(self):
         x = KerasTensor((None, 3))
         self.assertEqual(knp.argmin(x).shape, ())
-        self.assertEqual(knp.argmin(x, keepdims=True).shape, (None, 3))
+        self.assertEqual(knp.argmin(x, keepdims=True).shape, (1, 1))
 
         x = KerasTensor((None, 3, 3))
         self.assertEqual(knp.argmin(x, axis=1).shape, (None, 3))
-        self.assertEqual(knp.argmin(x, keepdims=True).shape, (None, 3, 3))
+        self.assertEqual(
+            knp.argmin(x, axis=1, keepdims=True).shape, (None, 1, 3)
+        )
+        self.assertEqual(knp.argmin(x, keepdims=True).shape, (1, 1, 1))
 
     def test_argsort(self):
         x = KerasTensor((None, 3))
@@ -1642,6 +1672,8 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
     def test_diagonal(self):
         x = KerasTensor((None, 3, 3))
         self.assertEqual(knp.diagonal(x).shape, (3, None))
+        with self.assertRaises(ValueError):
+            knp.diagonal(x, axis1=1, axis2=1)
 
     def test_diff(self):
         x = KerasTensor((None, 3))
@@ -1942,6 +1974,21 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
         x4 = KerasTensor((None, 2, 3, 4))
         self.assertEqual(knp.nanmean(x4, axis=2).shape, (None, 2, 4))
         self.assertEqual(knp.nanmean(x4, axis=(1, 3)).shape, (None, 3))
+
+    def test_nanmedian(self):
+        x = KerasTensor((None, 3))
+        self.assertEqual(knp.nanmedian(x).shape, ())
+
+        x = KerasTensor((None, 3, 3))
+        self.assertEqual(knp.nanmedian(x, axis=1).shape, (None, 3))
+        self.assertEqual(
+            knp.nanmedian(x, axis=1, keepdims=True).shape, (None, 1, 3)
+        )
+        self.assertEqual(knp.nanmedian(x, axis=(1,)).shape, (None, 3))
+        self.assertEqual(knp.nanmedian(x, axis=(1, 2)).shape, (None,))
+        self.assertEqual(
+            knp.nanmedian(x, axis=(1, 2), keepdims=True).shape, (None, 1, 1)
+        )
 
     def test_nanmin(self):
         x = KerasTensor((None, 3))
@@ -2244,6 +2291,16 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
         self.assertEqual(knp.trace(x).shape, (None, 5))
         self.assertEqual(knp.trace(x, axis1=2, axis2=3).shape, (None, 3))
 
+    def test_unique_symbolic_dynamic(self):
+        x = KerasTensor((None, 3))
+        out = knp.unique(x)
+        self.assertEqual(out.shape, (None,))
+
+        v, inv, c = knp.unique(x, return_inverse=True, return_counts=True)
+        self.assertEqual(v.shape, (None,))
+        self.assertEqual(inv.shape, (None, 3))
+        self.assertEqual(c.shape, (None,))
+
     def test_tril(self):
         x = KerasTensor((None, 3, None, 5))
         self.assertEqual(knp.tril(x).shape, (None, 3, None, 5))
@@ -2442,12 +2499,14 @@ class NumpyOneInputOpsStaticShapeTest(testing.TestCase):
     def test_argmax(self):
         x = KerasTensor((2, 3))
         self.assertEqual(knp.argmax(x).shape, ())
-        self.assertEqual(knp.argmax(x, keepdims=True).shape, (2, 3))
+        self.assertEqual(knp.argmax(x, keepdims=True).shape, (1, 1))
+        self.assertEqual(knp.argmax(x, axis=1, keepdims=True).shape, (2, 1))
 
     def test_argmin(self):
         x = KerasTensor((2, 3))
         self.assertEqual(knp.argmin(x).shape, ())
-        self.assertEqual(knp.argmin(x, keepdims=True).shape, (2, 3))
+        self.assertEqual(knp.argmin(x, keepdims=True).shape, (1, 1))
+        self.assertEqual(knp.argmin(x, axis=1, keepdims=True).shape, (2, 1))
 
     def test_argsort(self):
         x = KerasTensor((2, 3))
@@ -2580,6 +2639,8 @@ class NumpyOneInputOpsStaticShapeTest(testing.TestCase):
         with self.assertRaises(ValueError):
             x = KerasTensor((3,))
             knp.diagonal(x)
+        with self.assertRaises(ValueError):
+            knp.diagonal(KerasTensor((2, 3, 4)), axis1=1, axis2=1)
 
     def test_diff(self):
         x = KerasTensor((2, 3))
@@ -2807,12 +2868,31 @@ class NumpyOneInputOpsStaticShapeTest(testing.TestCase):
         self.assertEqual(knp.nanmean(x, axis=1).shape, (2,))
         self.assertEqual(knp.nanmean(x, axis=1, keepdims=True).shape, (2, 1))
 
+    def test_nanmedian(self):
+        x = KerasTensor((2, 3))
+        self.assertEqual(knp.nanmedian(x).shape, ())
+        self.assertEqual(knp.nanmedian(x, axis=0).shape, (3,))
+        self.assertEqual(knp.nanmedian(x, axis=1).shape, (2,))
+        self.assertEqual(knp.nanmedian(x, axis=1, keepdims=True).shape, (2, 1))
+
     def test_nanmin(self):
         x = KerasTensor((2, 3))
         self.assertEqual(knp.nanmin(x).shape, ())
         self.assertEqual(knp.nanmin(x, axis=0).shape, (3,))
         self.assertEqual(knp.nanmin(x, axis=1).shape, (2,))
         self.assertEqual(knp.nanmin(x, axis=1, keepdims=True).shape, (2, 1))
+
+    def test_unique_symbolic_static(self):
+        x = KerasTensor((2, 4))
+        v, inv = knp.unique(x, axis=0, return_inverse=True)
+        self.assertEqual(v.shape, (None, 4))
+        self.assertEqual(inv.shape, (2,))
+
+    def test_unique_symbolic_with_size(self):
+        x = KerasTensor((2, 4))
+        self.assertEqual(knp.unique(x, size=5).shape, (5,))
+        self.assertEqual(knp.unique(x, axis=0, size=3).shape, (3, 4))
+        self.assertEqual(knp.unique(x, axis=1, size=6).shape, (2, 6))
 
     def test_nanprod_(self):
         x = KerasTensor((2, 3))
@@ -6924,6 +7004,46 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
             knp.nanstd(x_3d, axis=(1, 2)),
             np.nanstd(x_3d, axis=(1, 2)),
         )
+
+    def test_nanmedian(self):
+        x = np.array(
+            [[1.0, np.nan, 3.0, 4.0, 5.0], [np.nan, 2.0, 3.0, np.inf, -np.inf]]
+        )
+
+        self.assertAllClose(knp.nanmedian(x), np.nanmedian(x))
+        self.assertAllClose(knp.nanmedian(x, axis=()), np.nanmedian(x, axis=()))
+        self.assertAllClose(knp.nanmedian(x, axis=1), np.nanmedian(x, axis=1))
+        self.assertAllClose(
+            knp.nanmedian(x, axis=(1,)), np.nanmedian(x, axis=(1,))
+        )
+        self.assertAllClose(
+            knp.nanmedian(x, axis=1, keepdims=True),
+            np.nanmedian(x, axis=1, keepdims=True),
+        )
+
+        self.assertAllClose(knp.Nanmedian()(x), np.nanmedian(x))
+        self.assertAllClose(knp.Nanmedian(axis=1)(x), np.nanmedian(x, axis=1))
+
+    def test_unique(self):
+        x = np.array([3, 1, 2, 1])
+        expected_v = np.array([1, 2, 3])
+        expected_c = np.array([2, 1, 1])
+
+        v, inv, counts = knp.unique(x, return_inverse=True, return_counts=True)
+        self.assertAllClose(v, expected_v)
+        self.assertAllClose(counts, expected_c)
+        self.assertAllClose(ops.take(v, inv), x)
+
+        x = np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0]])
+        v, inv = knp.unique(x, axis=0, return_inverse=True)
+        self.assertAllClose(v, np.array([[0, 1, 0], [1, 0, 0]]))
+        self.assertAllClose(ops.take(v, inv, axis=0), x)
+
+        v, counts = knp.unique(
+            np.array([3, 1, 2, 1]), size=5, fill_value=-1, return_counts=True
+        )
+        self.assertAllClose(v, np.array([1, 2, 3, -1, -1]))
+        self.assertAllClose(counts, np.array([2, 1, 1, 0, 0]))
 
     def test_nansum(self):
         x = np.array([[1.0, np.nan, 3.0], [np.nan, 2.0, 1.0]])

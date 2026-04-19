@@ -1055,7 +1055,6 @@ def log_softmax(x, axis=-1):
         return LogSoftmax(axis).symbolic_call(x)
     x = backend.convert_to_tensor(x)
     original_shape = x.shape
-    axis = _normalize_log_softmax_axis(x, axis)
     if axis is None:
         x = backend.numpy.reshape(x, (-1,))
         x = backend.nn.log_softmax(x, axis=-1)
