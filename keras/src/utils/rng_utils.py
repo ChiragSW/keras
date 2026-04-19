@@ -98,4 +98,4 @@ def consume_default_initializer_seed():
             GLOBAL_DEFAULT_INITIALIZER_SEED, seed + 1
         )
         return seed
-    return int(np.random.randint(1, 1_000_000_001))
+    return random.randint(1, int(1e9))
