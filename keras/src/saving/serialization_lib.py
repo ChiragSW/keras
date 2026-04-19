@@ -439,7 +439,7 @@ def _validate_registered_name(
         return
 
     # Internal Keras classes may serialize `registered_name` as the class name.
-    if not _is_keras_namespace(module) or registered_name == name:
+    if registered_name == name:
         return
 
     custom_obj = object_registration.get_registered_object(
@@ -608,11 +608,7 @@ def deserialize_keras_object(
                 config["class_name"],
                 config.get("registered_name", config["class_name"]),
                 config.get("module", None),
-                (
-                    "function"
-                    if config["class_name"] == "function"
-                    else "class"
-                ),
+                ("function" if config["class_name"] == "function" else "class"),
                 config,
                 custom_objects=custom_objects,
             )
