@@ -1753,6 +1753,17 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
         with self.assertRaises(ValueError):
             knp.trace(x, axis1=0, axis2=5)
 
+    def test_diagonal_unknown_rank(self):
+        class UnknownRankShape:
+            rank = None
+
+        class UnknownRankTensor:
+            shape = UnknownRankShape()
+            dtype = "float32"
+
+        with self.assertRaisesRegex(ValueError, "known input rank"):
+            knp.Diagonal().compute_output_spec(UnknownRankTensor())
+
     def test_floor(self):
         x = KerasTensor((None, 3))
         self.assertEqual(knp.floor(x).shape, (None, 3))

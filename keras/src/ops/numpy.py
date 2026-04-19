@@ -2670,14 +2670,20 @@ class Diagonal(Operation):
         )
 
     def compute_output_spec(self, x):
+        ndim = get_static_tensor_ndim(x)
+        if ndim is None:
+            raise ValueError(
+                "`diagonal` requires a known input rank for symbolic shape "
+                "inference. Received: x.shape=None"
+            )
         x_shape = list(x.shape)
         if len(x_shape) < 2:
             raise ValueError(
                 "`diagonal` requires an array of at least two dimensions, but "
                 f"`x` is of shape {x.shape}."
             )
-        axis1 = canonicalize_axis(self.axis1, len(x_shape))
-        axis2 = canonicalize_axis(self.axis2, len(x_shape))
+        axis1 = canonicalize_axis(self.axis1, ndim)
+        axis2 = canonicalize_axis(self.axis2, ndim)
         if axis1 == axis2:
             raise ValueError(
                 f"axis1 and axis2 cannot be the same. Received: axis1={axis1}, "
