@@ -1049,9 +1049,29 @@ class PadImages(Operation):
         images_shape = list(images.shape)
         if len(images_shape) not in (3, 4):
             raise ValueError(
-                f"Invalid shape for argument `images`: "
-                "it must have rank 3 or 4. "
+                "Invalid images rank: expected rank 3 (single image) "
+                "or rank 4 (batch of images). "
                 f"Received: images.shape={images_shape}"
+            )
+        if [self.top_padding, self.bottom_padding, self.target_height].count(
+            None
+        ) != 1:
+            raise ValueError(
+                "Must specify exactly two of "
+                "top_padding, bottom_padding, target_height. "
+                f"Received: top_padding={self.top_padding}, "
+                f"bottom_padding={self.bottom_padding}, "
+                f"target_height={self.target_height}"
+            )
+        if [self.left_padding, self.right_padding, self.target_width].count(
+            None
+        ) != 1:
+            raise ValueError(
+                "Must specify exactly two of "
+                "left_padding, right_padding, target_width. "
+                f"Received: left_padding={self.left_padding}, "
+                f"right_padding={self.right_padding}, "
+                f"target_width={self.target_width}"
             )
 
         if self.data_format == "channels_last":
@@ -1167,23 +1187,6 @@ def pad_images(
     >>> padded_batch.shape
     (2, 20, 30, 3)"""
 
-    if [top_padding, bottom_padding, target_height].count(None) != 1:
-        raise ValueError(
-            "Must specify exactly two of "
-            "top_padding, bottom_padding, target_height. "
-            f"Received: top_padding={top_padding}, "
-            f"bottom_padding={bottom_padding}, "
-            f"target_height={target_height}"
-        )
-    if [left_padding, right_padding, target_width].count(None) != 1:
-        raise ValueError(
-            "Must specify exactly two of "
-            "left_padding, right_padding, target_width. "
-            f"Received: left_padding={left_padding}, "
-            f"right_padding={right_padding}, "
-            f"target_width={target_width}"
-        )
-
     if any_symbolic_tensors((images,)):
         return PadImages(
             top_padding,
@@ -1224,8 +1227,8 @@ def _pad_images(
     # Check
     if len(images_shape) not in (3, 4):
         raise ValueError(
-            f"Invalid shape for argument `images`: "
-            "it must have rank 3 or 4. "
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). "
             f"Received: images.shape={images_shape}"
         )
     if [top_padding, bottom_padding, target_height].count(None) != 1:
@@ -1331,9 +1334,29 @@ class CropImages(Operation):
         images_shape = list(images.shape)
         if len(images_shape) not in (3, 4):
             raise ValueError(
-                f"Invalid shape for argument `images`: "
-                "it must have rank 3 or 4. "
+                "Invalid images rank: expected rank 3 (single image) "
+                "or rank 4 (batch of images). "
                 f"Received: images.shape={images_shape}"
+            )
+        if [self.top_cropping, self.bottom_cropping, self.target_height].count(
+            None
+        ) != 1:
+            raise ValueError(
+                "Must specify exactly two of "
+                "top_cropping, bottom_cropping, target_height. "
+                f"Received: top_cropping={self.top_cropping}, "
+                f"bottom_cropping={self.bottom_cropping}, "
+                f"target_height={self.target_height}"
+            )
+        if [self.left_cropping, self.right_cropping, self.target_width].count(
+            None
+        ) != 1:
+            raise ValueError(
+                "Must specify exactly two of "
+                "left_cropping, right_cropping, target_width. "
+                f"Received: left_cropping={self.left_cropping}, "
+                f"right_cropping={self.right_cropping}, "
+                f"target_width={self.target_width}"
             )
 
         if self.data_format == "channels_last":
@@ -1459,23 +1482,6 @@ def crop_images(
     array([[ 1.,  4.],
            [10., 13.]], dtype=float32)"""
 
-    if [top_cropping, bottom_cropping, target_height].count(None) != 1:
-        raise ValueError(
-            "Must specify exactly two of "
-            "top_cropping, bottom_cropping, target_height. "
-            f"Received: top_cropping={top_cropping}, "
-            f"bottom_cropping={bottom_cropping}, "
-            f"target_height={target_height}"
-        )
-    if [left_cropping, right_cropping, target_width].count(None) != 1:
-        raise ValueError(
-            "Must specify exactly two of "
-            "left_cropping, right_cropping, target_width. "
-            f"Received: left_cropping={left_cropping}, "
-            f"right_cropping={right_cropping}, "
-            f"target_width={target_width}"
-        )
-
     if any_symbolic_tensors((images,)):
         return CropImages(
             top_cropping,
@@ -1516,8 +1522,8 @@ def _crop_images(
     # Check
     if len(images_shape) not in (3, 4):
         raise ValueError(
-            f"Invalid shape for argument `images`: "
-            "it must have rank 3 or 4. "
+            "Invalid images rank: expected rank 3 (single image) "
+            "or rank 4 (batch of images). "
             f"Received: images.shape={images_shape}"
         )
     if [top_cropping, bottom_cropping, target_height].count(None) != 1:

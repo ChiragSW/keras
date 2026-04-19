@@ -232,6 +232,24 @@ class ImageOpsDynamicShapeTest(testing.TestCase):
         with self.assertRaises(ValueError):
             kimage.crop_images(x, 0, 0, target_height=10, target_width=16)
 
+    def test_pad_images_invalid_padding_params_keras_input(self):
+        x = keras.Input(shape=(16, 16, 3))
+        with self.assertRaisesRegex(
+            ValueError,
+            "Must specify exactly two of top_padding, bottom_padding, "
+            "target_height",
+        ):
+            kimage.pad_images(x, 0, 0, 0, target_height=16, target_width=16)
+
+    def test_crop_images_invalid_cropping_params_keras_input(self):
+        x = keras.Input(shape=(16, 16, 3))
+        with self.assertRaisesRegex(
+            ValueError,
+            "Must specify exactly two of top_cropping, bottom_cropping, "
+            "target_height",
+        ):
+            kimage.crop_images(x, 0, 0, 0, target_height=10, target_width=16)
+
     def test_perspective_transform(self):
         # Test channels_last
         x = KerasTensor([None, 20, 20, 3])
