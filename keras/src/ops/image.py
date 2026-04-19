@@ -1077,7 +1077,7 @@ class PadImages(Operation):
         def validate_non_negative(value, name):
             if value is not None and value < 0:
                 raise ValueError(
-                    f"{name} must be >= 0. " f"Received: {name}={value}"
+                    f"{name} must be >= 0. Received: {name}={value}"
                 )
 
         validate_non_negative(self.top_padding, "top_padding")
@@ -1375,7 +1375,7 @@ class CropImages(Operation):
         def validate_non_negative(value, name):
             if value is not None and value < 0:
                 raise ValueError(
-                    f"{name} must be >= 0. " f"Received: {name}={value}"
+                    f"{name} must be >= 0. Received: {name}={value}"
                 )
 
         validate_non_negative(self.top_cropping, "top_cropping")
