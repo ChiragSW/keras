@@ -1074,6 +1074,19 @@ class PadImages(Operation):
                 f"target_width={self.target_width}"
             )
 
+        def validate_non_negative(value, name):
+            if value is not None and value < 0:
+                raise ValueError(
+                    f"{name} must be >= 0. " f"Received: {name}={value}"
+                )
+
+        validate_non_negative(self.top_padding, "top_padding")
+        validate_non_negative(self.bottom_padding, "bottom_padding")
+        validate_non_negative(self.target_height, "target_height")
+        validate_non_negative(self.left_padding, "left_padding")
+        validate_non_negative(self.right_padding, "right_padding")
+        validate_non_negative(self.target_width, "target_width")
+
         if self.data_format == "channels_last":
             height_axis, width_axis = -3, -2
             height, width = images_shape[height_axis], images_shape[width_axis]
@@ -1105,7 +1118,7 @@ class PadImages(Operation):
                     "bottom_padding must be >= 0. "
                     f"Received: bottom_padding={bottom_padding}"
                 )
-            if target_height is not None and target_height < 0:
+            if target_height < 0:
                 raise ValueError(
                     "target_height must be >= 0. "
                     f"Received: target_height={target_height}"
@@ -1128,7 +1141,7 @@ class PadImages(Operation):
                     "right_padding must be >= 0. "
                     f"Received: right_padding={right_padding}"
                 )
-            if target_width is not None and target_width < 0:
+            if target_width < 0:
                 raise ValueError(
                     "target_width must be >= 0. "
                     f"Received: target_width={target_width}"
@@ -1358,6 +1371,19 @@ class CropImages(Operation):
                 f"right_cropping={self.right_cropping}, "
                 f"target_width={self.target_width}"
             )
+
+        def validate_non_negative(value, name):
+            if value is not None and value < 0:
+                raise ValueError(
+                    f"{name} must be >= 0. " f"Received: {name}={value}"
+                )
+
+        validate_non_negative(self.top_cropping, "top_cropping")
+        validate_non_negative(self.bottom_cropping, "bottom_cropping")
+        validate_non_negative(self.target_height, "target_height")
+        validate_non_negative(self.left_cropping, "left_cropping")
+        validate_non_negative(self.right_cropping, "right_cropping")
+        validate_non_negative(self.target_width, "target_width")
 
         if self.data_format == "channels_last":
             height_axis, width_axis = -3, -2

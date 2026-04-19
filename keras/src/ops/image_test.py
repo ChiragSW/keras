@@ -2653,10 +2653,72 @@ class ImageOpsBehaviorTests(testing.TestCase):
             kimage.PadImages(
                 top_padding=0,
                 left_padding=0,
-                bottom_padding=0,
-                right_padding=0,
+                bottom_padding=None,
+                right_padding=None,
                 target_height=-1,
                 target_width=10,
+            ).symbolic_call(x)
+
+        x = KerasTensor([None, None, 3])
+        with self.assertRaisesRegex(ValueError, "top_padding must be >= 0"):
+            kimage.PadImages(
+                top_padding=-1,
+                left_padding=0,
+                bottom_padding=None,
+                right_padding=None,
+                target_height=5,
+                target_width=5,
+            ).symbolic_call(x)
+        with self.assertRaisesRegex(ValueError, "target_height must be >= 0"):
+            kimage.PadImages(
+                top_padding=0,
+                left_padding=0,
+                bottom_padding=None,
+                right_padding=None,
+                target_height=-1,
+                target_width=5,
+            ).symbolic_call(x)
+
+    def test_crop_images_negative_output_spec(self):
+        x = KerasTensor([10, 10, 3])
+        with self.assertRaisesRegex(ValueError, "top_cropping must be >= 0"):
+            kimage.crop_images(
+                x,
+                None,
+                None,
+                1,
+                0,
+                target_height=12,
+                target_width=10,
+            )
+        with self.assertRaisesRegex(ValueError, "target_height must be >= 0"):
+            kimage.CropImages(
+                top_cropping=0,
+                left_cropping=0,
+                bottom_cropping=None,
+                right_cropping=None,
+                target_height=-1,
+                target_width=10,
+            ).symbolic_call(x)
+
+        x = KerasTensor([None, None, 3])
+        with self.assertRaisesRegex(ValueError, "top_cropping must be >= 0"):
+            kimage.CropImages(
+                top_cropping=-1,
+                left_cropping=0,
+                bottom_cropping=None,
+                right_cropping=None,
+                target_height=5,
+                target_width=5,
+            ).symbolic_call(x)
+        with self.assertRaisesRegex(ValueError, "target_height must be >= 0"):
+            kimage.CropImages(
+                top_cropping=0,
+                left_cropping=0,
+                bottom_cropping=None,
+                right_cropping=None,
+                target_height=-1,
+                target_width=5,
             ).symbolic_call(x)
 
     def test_perspective_transform_invalid_images_rank(self):
