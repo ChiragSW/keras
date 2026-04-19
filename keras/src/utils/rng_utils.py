@@ -93,9 +93,9 @@ def consume_default_initializer_seed():
     seed = global_state.get_global_attribute(GLOBAL_DEFAULT_INITIALIZER_SEED)
     if seed is None:
         seed = get_random_seed()
-    if seed is None:
-        seed = int(np.random.randint(1, int(1e9)))
-    global_state.set_global_attribute(
-        GLOBAL_DEFAULT_INITIALIZER_SEED, int(seed) + 1
-    )
-    return int(seed)
+    if seed is not None:
+        global_state.set_global_attribute(
+            GLOBAL_DEFAULT_INITIALIZER_SEED, seed + 1
+        )
+        return seed
+    return int(np.random.randint(1, 1_000_000_001))

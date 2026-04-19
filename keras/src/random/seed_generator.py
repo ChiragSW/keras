@@ -144,11 +144,9 @@ def make_default_seed():
     """Return the default integer seed used by random initializers."""
     from keras.src.utils import rng_utils
 
-    if rng_utils.get_random_seed() is not None:
-        # Keep implicit initializer seeds deterministic after
-        # `keras.utils.set_random_seed()` calls.
-        return rng_utils.consume_default_initializer_seed()
-    return int(np.random.randint(1, int(1e9)))
+    # Keep implicit initializer seeds deterministic after
+    # `keras.utils.set_random_seed()` calls.
+    return rng_utils.consume_default_initializer_seed()
 
 
 def draw_seed(seed):
