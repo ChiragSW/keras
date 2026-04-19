@@ -1068,6 +1068,52 @@ class PadImages(Operation):
         if target_width is None and width is not None:
             target_width = self.left_padding + width + self.right_padding
 
+        if height is not None:
+            top_padding = self.top_padding
+            bottom_padding = self.bottom_padding
+            if top_padding is None:
+                top_padding = target_height - height - bottom_padding
+            if bottom_padding is None:
+                bottom_padding = target_height - height - top_padding
+            if top_padding < 0:
+                raise ValueError(
+                    "top_padding must be >= 0. "
+                    f"Received: top_padding={top_padding}"
+                )
+            if bottom_padding < 0:
+                raise ValueError(
+                    "bottom_padding must be >= 0. "
+                    f"Received: bottom_padding={bottom_padding}"
+                )
+            if target_height is not None and target_height < 0:
+                raise ValueError(
+                    "target_height must be >= 0. "
+                    f"Received: target_height={target_height}"
+                )
+
+        if width is not None:
+            left_padding = self.left_padding
+            right_padding = self.right_padding
+            if left_padding is None:
+                left_padding = target_width - width - right_padding
+            if right_padding is None:
+                right_padding = target_width - width - left_padding
+            if left_padding < 0:
+                raise ValueError(
+                    "left_padding must be >= 0. "
+                    f"Received: left_padding={left_padding}"
+                )
+            if right_padding < 0:
+                raise ValueError(
+                    "right_padding must be >= 0. "
+                    f"Received: right_padding={right_padding}"
+                )
+            if target_width is not None and target_width < 0:
+                raise ValueError(
+                    "target_width must be >= 0. "
+                    f"Received: target_width={target_width}"
+                )
+
         images_shape[height_axis] = target_height
         images_shape[width_axis] = target_width
         return KerasTensor(shape=images_shape, dtype=images.dtype)
@@ -1325,8 +1371,6 @@ class CropImages(Operation):
                 top_cropping = height - target_height - bottom_cropping
             if bottom_cropping is None:
                 bottom_cropping = height - target_height - top_cropping
-            if target_height is None:
-                target_height = height - top_cropping - bottom_cropping
             if top_cropping < 0:
                 raise ValueError(
                     "top_cropping must be >= 0. "
@@ -1350,8 +1394,6 @@ class CropImages(Operation):
                 left_cropping = width - target_width - right_cropping
             if right_cropping is None:
                 right_cropping = width - target_width - left_cropping
-            if target_width is None:
-                target_width = width - left_cropping - right_cropping
             if left_cropping < 0:
                 raise ValueError(
                     "left_cropping must be >= 0. "
