@@ -95,6 +95,40 @@ class SerializationLibTest(testing.TestCase):
         self.assertEqual(layer.trainable, restored.trainable)
         self.assertEqual(layer.compute_dtype, restored.compute_dtype)
 
+    def test_builtin_class_rejects_invalid_registered_name(self):
+        for registered_name in ["builtins.eval", "subprocess.Popen", ""]:
+            config = {
+                "class_name": "Dense",
+                "module": "keras.layers",
+                "registered_name": registered_name,
+                "config": {"units": 1},
+            }
+
+            with self.assertRaisesRegex(TypeError, "registered_name"):
+                serialization_lib.deserialize_keras_object(config)
+
+    def test_builtin_class_accepts_none_registered_name(self):
+        config = {
+            "class_name": "Dense",
+            "module": "keras.layers",
+            "registered_name": None,
+            "config": {"units": 1},
+        }
+
+        obj = serialization_lib.deserialize_keras_object(config)
+        self.assertIsInstance(obj, keras.layers.Dense)
+
+    def test_builtin_class_accepts_class_name_registered_name(self):
+        config = {
+            "class_name": "Dense",
+            "module": "keras.layers",
+            "registered_name": "Dense",
+            "config": {"units": 1},
+        }
+
+        obj = serialization_lib.deserialize_keras_object(config)
+        self.assertIsInstance(obj, keras.layers.Dense)
+
     def test_numpy_get_item_layer(self):
         def tuples_to_lists_str(x):
             return str(x).replace("(", "[").replace(")", "]")

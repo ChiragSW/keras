@@ -31,6 +31,8 @@ BUILTIN_MODULES = frozenset(
     }
 )
 
+KERAS_PACKAGES = frozenset({"keras", "keras_hub", "keras_cv", "keras_nlp"})
+
 LOADING_APIS = frozenset(
     {
         "keras.config.enable_unsafe_deserialization",
@@ -405,6 +407,56 @@ def serialize_dict(obj):
     return {key: serialize_keras_object(value) for key, value in obj.items()}
 
 
+def _is_keras_namespace(module):
+    if not module:
+        return False
+    return module.split(".", maxsplit=1)[0] in KERAS_PACKAGES
+
+
+def _validate_registered_name(
+    name,
+    registered_name,
+    module,
+    obj_type,
+    full_config,
+    custom_objects=None,
+):
+    if registered_name is None:
+        return
+    if not isinstance(registered_name, str):
+        raise TypeError(
+            "The `registered_name` field must be a string or `None`. "
+            f"Received: {registered_name!r}. Full object config: {full_config}"
+        )
+    if not registered_name:
+        raise TypeError(
+            "The `registered_name` field must be a non-empty string or "
+            f"`None`. Full object config: {full_config}"
+        )
+
+    # Function configs reuse `registered_name` to carry the function alias.
+    if obj_type == "function":
+        return
+
+    # Internal Keras classes may serialize `registered_name` as the class name.
+    if not _is_keras_namespace(module) or registered_name == name:
+        return
+
+    custom_obj = object_registration.get_registered_object(
+        registered_name, custom_objects=custom_objects
+    )
+    if custom_obj is not None:
+        return
+
+    raise TypeError(
+        f"Could not deserialize {obj_type} '{name}' because "
+        f"`registered_name={registered_name!r}` is not a known custom "
+        "object registration. For Keras classes, `registered_name` must be "
+        "`None`, the class name for legacy/internal configs, or a registered "
+        f"custom object key. Full object config: {full_config}"
+    )
+
+
 @keras_export(
     [
         "keras.saving.deserialize_keras_object",
@@ -552,6 +604,18 @@ def deserialize_keras_object(
                 raise ValueError(
                     f"Unknown `config` as a `dict`, config={config}"
                 )
+            _validate_registered_name(
+                config["class_name"],
+                config.get("registered_name", config["class_name"]),
+                config.get("module", None),
+                (
+                    "function"
+                    if config["class_name"] == "function"
+                    else "class"
+                ),
+                config,
+                custom_objects=custom_objects,
+            )
 
             # Check case where config is function or class and in custom objects
             if custom_objects and (
@@ -691,6 +755,14 @@ def deserialize_keras_object(
     # Below: classes and functions.
     module = config.get("module", None)
     registered_name = config.get("registered_name", class_name)
+    _validate_registered_name(
+        class_name,
+        registered_name,
+        module,
+        "function" if class_name == "function" else "class",
+        config,
+        custom_objects=custom_objects,
+    )
 
     if class_name == "function":
         fn_name = inner_config
@@ -817,7 +889,7 @@ def _retrieve_class_or_fn(
         # Otherwise, attempt to retrieve the class object given the `module`
         # and `class_name`. Import the module, find the class.
         package = module.split(".", maxsplit=1)[0]
-        if package in {"keras", "keras_hub", "keras_cv", "keras_nlp"}:
+        if package in KERAS_PACKAGES:
             try:
                 mod = importlib.import_module(module)
                 obj = vars(mod).get(name, None)
