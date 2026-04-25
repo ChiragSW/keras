@@ -594,7 +594,10 @@ def deserialize_keras_object(
             # Case where config is function but not in custom objects
             elif config["class_name"] == "function":
                 fn_module_name = config["module"]
-                if fn_module_name == "builtins":
+                if (
+                    fn_module_name == "builtins"
+                    or config.get("registered_name") is None
+                ):
                     config = config["config"]
                 else:
                     config = config["registered_name"]
