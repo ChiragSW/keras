@@ -17,6 +17,7 @@ from keras.src.utils import python_utils
 from keras.src.utils.module_utils import tensorflow as tf
 
 PLAIN_TYPES = (str, int, float, bool)
+MISSING = object()
 
 # List of Keras modules with built-in string representations for Keras defaults
 BUILTIN_MODULES = frozenset(
@@ -717,6 +718,7 @@ def deserialize_keras_object(
     # Below: classes and functions.
     module = config.get("module", None)
     registered_name = config.get("registered_name", class_name)
+    validate_registered_name = config.get("registered_name", None)
 
     if class_name == "function":
         fn_name = inner_config
@@ -727,6 +729,7 @@ def deserialize_keras_object(
             obj_type="function",
             full_config=config,
             custom_objects=custom_objects,
+            validate_registered_name=validate_registered_name,
         )
 
     # Below, handling of all classes.
@@ -743,6 +746,7 @@ def deserialize_keras_object(
         obj_type="class",
         full_config=config,
         custom_objects=custom_objects,
+        validate_registered_name=validate_registered_name,
     )
 
     if isinstance(cls, types.FunctionType):
@@ -787,8 +791,17 @@ def deserialize_keras_object(
 
 
 def _retrieve_class_or_fn(
-    name, registered_name, module, obj_type, full_config, custom_objects=None
+    name,
+    registered_name,
+    module,
+    obj_type,
+    full_config,
+    custom_objects=None,
+    validate_registered_name=MISSING,
 ):
+    if validate_registered_name is MISSING:
+        validate_registered_name = registered_name
+
     # If there is a custom object registered via
     # `register_keras_serializable()`, that takes precedence.
     if obj_type == "function":
@@ -819,7 +832,7 @@ def _retrieve_class_or_fn(
             obj = api_export.get_symbol_from_name(api_name)
             if obj is not None:
                 _validate_no_registered_name_for_keras_object(
-                    registered_name, obj_type, full_config
+                    validate_registered_name, obj_type, full_config
                 )
                 return obj
 
@@ -832,7 +845,7 @@ def _retrieve_class_or_fn(
                 obj = api_export.get_symbol_from_name(f"keras.{mod}.{name}")
                 if obj is not None:
                     _validate_no_registered_name_for_keras_object(
-                        registered_name, obj_type, full_config
+                        validate_registered_name, obj_type, full_config
                     )
                     return obj
 
