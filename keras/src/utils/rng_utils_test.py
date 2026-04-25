@@ -62,10 +62,10 @@ class TestRandomSeedSetting(test_case.TestCase):
         )
 
         np.random.seed(1337)
-        expected_next = int(np.random.randint(1, int(1e9)))
+        expected_next = int(np.random.randint(1, 2**31))
 
         np.random.seed(1337)
         rng_utils.consume_default_initializer_seed()
-        actual_next = int(np.random.randint(1, int(1e9)))
+        actual_next = int(np.random.randint(1, 2**31))
 
         self.assertEqual(actual_next, expected_next)

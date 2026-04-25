@@ -1,3 +1,5 @@
+import random as python_random
+
 import numpy as np
 import pytest
 
@@ -45,6 +47,20 @@ class SeedGeneratorTest(testing.TestCase):
         seed2 = seed_generator.make_default_seed()
         self.assertNotEqual(seed1, seed2)
         rng_utils.set_random_seed(42)
+        self.assertEqual(seed_generator.make_default_seed(), seed1)
+        self.assertEqual(seed_generator.make_default_seed(), seed2)
+
+    def test_make_default_seed_isolated_from_global_rng_after_set_random_seed(
+        self,
+    ):
+        rng_utils.set_random_seed(42)
+        seed1 = seed_generator.make_default_seed()
+        seed2 = seed_generator.make_default_seed()
+
+        rng_utils.set_random_seed(42)
+        python_random.randint(1, 2**31 - 1)
+        np.random.randint(1, 2**31)
+
         self.assertEqual(seed_generator.make_default_seed(), seed1)
         self.assertEqual(seed_generator.make_default_seed(), seed2)
 

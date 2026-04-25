@@ -88,7 +88,7 @@ def consume_default_initializer_seed():
     `seed_generator.make_default_seed()`. When users call
     `keras.utils.set_random_seed()`, this counter ensures that those implicit
     initializer seeds are replayable across runs, independently from how many
-    NumPy random draws happened before layer construction.
+    Python or NumPy random draws happened before layer construction.
     """
     seed = global_state.get_global_attribute(GLOBAL_DEFAULT_INITIALIZER_SEED)
     if seed is None:
@@ -98,4 +98,4 @@ def consume_default_initializer_seed():
             GLOBAL_DEFAULT_INITIALIZER_SEED, seed + 1
         )
         return seed
-    return random.randint(1, int(1e9))
+    return random.randint(1, 2**31 - 1)
