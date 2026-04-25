@@ -1,3 +1,5 @@
+import numpy as np
+
 from keras.src.backend.common.backend_utils import (
     _convert_conv_transpose_padding_args_from_keras_to_jax,
 )
@@ -195,19 +197,18 @@ class CanonicalizeAxesTest(test_case.TestCase):
     def test_int_axis(self):
         self.assertEqual(canonicalize_axes(-1, 4), (3,))
 
+    def test_numpy_int_axis(self):
+        self.assertEqual(canonicalize_axes(np.int64(-1), 4), (3,))
+
     def test_sequence_axis(self):
         self.assertEqual(canonicalize_axes([0, -1], 4), (0, 3))
 
     def test_invalid_axis_type(self):
-        with self.assertRaisesRegex(
-            TypeError, "must be an integer or a sequence of integers"
-        ):
+        with self.assertRaises(TypeError):
             canonicalize_axes("1", 4)
 
     def test_invalid_axis_element_type(self):
-        with self.assertRaisesRegex(
-            TypeError, "must be an integer or a sequence of integers"
-        ):
+        with self.assertRaises(TypeError):
             canonicalize_axes([0, "1"], 4)
 
 
