@@ -259,6 +259,12 @@ def serialize_keras_object(obj):
         }
 
     inner_config = _get_class_or_fn_config(obj)
+
+    if isinstance(obj, types.FunctionType):
+        config_with_public_fn = serialize_with_public_fn(obj, inner_config)
+        if config_with_public_fn is not None:
+            return config_with_public_fn
+
     config_with_public_class = serialize_with_public_class(
         obj.__class__, inner_config
     )
@@ -352,11 +358,16 @@ def serialize_with_public_fn(fn, config, fn_module_name=None):
     is already known, returns corresponding config.
     """
     if fn_module_name:
+        keras_api_name = f"{fn_module_name}.{config}"
         return {
             "module": fn_module_name,
             "class_name": "function",
             "config": config,
-            "registered_name": config,
+            "registered_name": (
+                None
+                if api_export.get_symbol_from_name(keras_api_name) is not None
+                else config
+            ),
         }
     keras_api_name = api_export.get_name_from_symbol(fn)
     if keras_api_name:
@@ -365,7 +376,7 @@ def serialize_with_public_fn(fn, config, fn_module_name=None):
             "module": ".".join(parts[:-1]),
             "class_name": "function",
             "config": config,
-            "registered_name": config,
+            "registered_name": None,
         }
     else:
         registered_name = object_registration.get_registered_name(fn)
@@ -407,53 +418,16 @@ def serialize_dict(obj):
     return {key: serialize_keras_object(value) for key, value in obj.items()}
 
 
-def _is_keras_namespace(module):
-    if not module:
-        return False
-    return module.split(".", maxsplit=1)[0] in KERAS_PACKAGES
-
-
-def _validate_registered_name(
-    name,
-    registered_name,
-    module,
-    obj_type,
-    full_config,
-    custom_objects=None,
+def _validate_no_registered_name_for_keras_object(
+    registered_name, obj_type, full_config
 ):
     if registered_name is None:
         return
-    if not isinstance(registered_name, str):
-        raise TypeError(
-            "The `registered_name` field must be a string or `None`. "
-            f"Received: {registered_name!r}. Full object config: {full_config}"
-        )
-    if not registered_name:
-        raise TypeError(
-            "The `registered_name` field must be a non-empty string or "
-            f"`None`. Full object config: {full_config}"
-        )
-
-    # Function configs reuse `registered_name` to carry the function alias.
-    if obj_type == "function":
-        return
-
-    # Internal Keras classes may serialize `registered_name` as the class name.
-    if registered_name == name:
-        return
-
-    custom_obj = object_registration.get_registered_object(
-        registered_name, custom_objects=custom_objects
-    )
-    if custom_obj is not None:
-        return
-
     raise TypeError(
-        f"Could not deserialize {obj_type} '{name}' because "
-        f"`registered_name={registered_name!r}` is not a known custom "
-        "object registration. For Keras classes, `registered_name` must be "
-        "`None`, the class name for legacy/internal configs, or a registered "
-        f"custom object key. Full object config: {full_config}"
+        f"Could not deserialize Keras {obj_type} because `registered_name` "
+        "must be `None` when the object is resolved from the Keras API. "
+        f"Received: registered_name={registered_name!r}. "
+        f"Full object config: {full_config}"
     )
 
 
@@ -604,14 +578,6 @@ def deserialize_keras_object(
                 raise ValueError(
                     f"Unknown `config` as a `dict`, config={config}"
                 )
-            _validate_registered_name(
-                config["class_name"],
-                config.get("registered_name", config["class_name"]),
-                config.get("module", None),
-                ("function" if config["class_name"] == "function" else "class"),
-                config,
-                custom_objects=custom_objects,
-            )
 
             # Check case where config is function or class and in custom objects
             if custom_objects and (
@@ -751,14 +717,6 @@ def deserialize_keras_object(
     # Below: classes and functions.
     module = config.get("module", None)
     registered_name = config.get("registered_name", class_name)
-    _validate_registered_name(
-        class_name,
-        registered_name,
-        module,
-        "function" if class_name == "function" else "class",
-        config,
-        custom_objects=custom_objects,
-    )
 
     if class_name == "function":
         fn_name = inner_config
@@ -860,6 +818,9 @@ def _retrieve_class_or_fn(
 
             obj = api_export.get_symbol_from_name(api_name)
             if obj is not None:
+                _validate_no_registered_name_for_keras_object(
+                    registered_name, obj_type, full_config
+                )
                 return obj
 
         # Configs of Keras built-in functions do not contain identifying
@@ -870,6 +831,9 @@ def _retrieve_class_or_fn(
             for mod in BUILTIN_MODULES:
                 obj = api_export.get_symbol_from_name(f"keras.{mod}.{name}")
                 if obj is not None:
+                    _validate_no_registered_name_for_keras_object(
+                        registered_name, obj_type, full_config
+                    )
                     return obj
 
             # Workaround for serialization bug in Keras <= 3.6 whereby custom

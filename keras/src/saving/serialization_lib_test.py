@@ -95,8 +95,13 @@ class SerializationLibTest(testing.TestCase):
         self.assertEqual(layer.trainable, restored.trainable)
         self.assertEqual(layer.compute_dtype, restored.compute_dtype)
 
-    def test_builtin_class_rejects_invalid_registered_name(self):
-        for registered_name in ["builtins.eval", "subprocess.Popen", ""]:
+    def test_builtin_class_rejects_ignored_registered_name(self):
+        for registered_name in [
+            "builtins.eval",
+            "subprocess.Popen",
+            "",
+            "Dense",
+        ]:
             config = {
                 "class_name": "Dense",
                 "module": "keras.layers",
@@ -118,16 +123,41 @@ class SerializationLibTest(testing.TestCase):
         obj = serialization_lib.deserialize_keras_object(config)
         self.assertIsInstance(obj, keras.layers.Dense)
 
-    def test_builtin_class_accepts_class_name_registered_name(self):
+    def test_builtin_function_rejects_ignored_registered_name(self):
         config = {
-            "class_name": "Dense",
-            "module": "keras.layers",
-            "registered_name": "Dense",
-            "config": {"units": 1},
+            "class_name": "function",
+            "module": "builtins",
+            "registered_name": "function",
+            "config": "relu",
+        }
+
+        with self.assertRaisesRegex(TypeError, "registered_name"):
+            serialization_lib.deserialize_keras_object(config)
+
+    def test_builtin_function_accepts_none_registered_name(self):
+        config = {
+            "class_name": "function",
+            "module": "builtins",
+            "registered_name": None,
+            "config": "relu",
         }
 
         obj = serialization_lib.deserialize_keras_object(config)
-        self.assertIsInstance(obj, keras.layers.Dense)
+        self.assertIs(obj, keras.activations.relu)
+
+    def test_custom_object_allows_arbitrary_registered_name(self):
+        config = {
+            "class_name": "CustomLayer",
+            "module": None,
+            "registered_name": "third.party.CustomLayer",
+            "config": {"factor": 2},
+        }
+
+        obj = serialization_lib.deserialize_keras_object(
+            config,
+            custom_objects={"third.party.CustomLayer": CustomLayer},
+        )
+        self.assertIsInstance(obj, CustomLayer)
 
     def test_numpy_get_item_layer(self):
         def tuples_to_lists_str(x):
