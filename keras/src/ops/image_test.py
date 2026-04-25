@@ -2682,7 +2682,7 @@ class ImageOpsBehaviorTests(testing.TestCase):
             )
 
     def test_pad_images_negative_arguments(self):
-        image = np.random.uniform(size=(10, 10, 3)).astype("float32")
+        image = np.ones((10, 10, 3), dtype="float32")
         with self.assertRaisesRegex(ValueError, "top_padding must be >= 0"):
             kimage.pad_images(
                 image,
@@ -2759,7 +2759,7 @@ class ImageOpsBehaviorTests(testing.TestCase):
             )
 
     def test_crop_images_negative_arguments(self):
-        image = np.random.uniform(size=(10, 10, 3)).astype("float32")
+        image = np.ones((10, 10, 3), dtype="float32")
         with self.assertRaisesRegex(ValueError, "top_cropping must be >= 0"):
             kimage.crop_images(
                 image,
