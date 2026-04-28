@@ -986,10 +986,7 @@ class LogSoftmax(Operation):
 
     def compute_output_spec(self, x):
         if self.axis is not None:
-            if isinstance(self.axis, (tuple, list)):
-                canonicalize_axes(self.axis, len(x.shape))
-            else:
-                canonicalize_axis(self.axis, len(x.shape))
+            canonicalize_axes(self.axis, len(x.shape))
         return KerasTensor(x.shape, dtype=x.dtype)
 
 
