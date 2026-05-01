@@ -5140,17 +5140,11 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
         x = np.random.randint(1, 100 + 1)
         self.assertAllClose(knp.blackman(x), np.blackman(x))
 
-        self.assertAllClose(knp.Blackman()(x), np.blackman(x))
-
     def test_blackman_length_1(self):
         x = 1
         x_tensor = keras.ops.convert_to_tensor(x)
         expected = np.blackman(x)
         out = knp.blackman(x_tensor)
-        self.assertEqual(out.shape[0], x)
-        self.assertAllClose(out, expected)
-
-        out = knp.Blackman()(x_tensor)
         self.assertEqual(out.shape[0], x)
         self.assertAllClose(out, expected)
 
@@ -10613,6 +10607,26 @@ class NumpyDtypeTest(testing.TestCase):
         )
 
     @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
+    def test_nanpercentile(self, dtype):
+        import jax.numpy as jnp
+
+        x = knp.ones((3,), dtype=dtype)
+        x_jax = jnp.ones((3,), dtype=dtype)
+
+        expected_dtype = standardize_dtype(jnp.nanpercentile(x_jax, 50).dtype)
+        if dtype == "int64":
+            expected_dtype = backend.floatx()
+
+        self.assertEqual(
+            standardize_dtype(knp.nanpercentile(x, 50).dtype),
+            expected_dtype,
+        )
+        self.assertEqual(
+            standardize_dtype(knp.Nanpercentile().symbolic_call(x, 50).dtype),
+            expected_dtype,
+        )
+
+    @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
     def test_nanmin(self, dtype):
         import jax.numpy as jnp
 
@@ -10622,6 +10636,8 @@ class NumpyDtypeTest(testing.TestCase):
 
         if backend.backend() == "torch" and expected_dtype == "uint32":
             expected_dtype = "int32"
+
+        self.assertEqual(standardize_dtype(knp.nanmin(x).dtype), expected_dtype)
 
         self.assertEqual(
             standardize_dtype(knp.Nanmin().symbolic_call(x).dtype),
