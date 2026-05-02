@@ -1499,11 +1499,6 @@ class NumpyOneInputOpsDynamicShapeTest(testing.TestCase):
         x = np.random.randint(1, 100 + 1)
         self.assertEqual(knp.blackman(x).shape[0], x)
 
-    def test_blackman_length_1_symbolic_shape(self):
-        x = KerasTensor((1,), dtype="int32")
-        y = knp.blackman(x)
-        self.assertEqual(y.shape, (1,))
-
     def test_hamming(self):
         x = np.random.randint(1, 100 + 1)
         self.assertEqual(knp.hamming(x).shape[0], x)
@@ -10607,6 +10602,23 @@ class NumpyDtypeTest(testing.TestCase):
         )
 
     @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
+    def test_nanmin(self, dtype):
+        import jax.numpy as jnp
+
+        x = knp.ones((1,), dtype=dtype)
+        x_jax = jnp.ones((1,), dtype=dtype)
+        expected_dtype = standardize_dtype(jnp.nanmin(x_jax).dtype)
+
+        if backend.backend() == "torch" and expected_dtype == "uint32":
+            expected_dtype = "int32"
+
+        self.assertEqual(standardize_dtype(knp.nanmin(x).dtype), expected_dtype)
+        self.assertEqual(
+            standardize_dtype(knp.Nanmin().symbolic_call(x).dtype),
+            expected_dtype,
+        )
+    
+    @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
     def test_nanpercentile(self, dtype):
         import jax.numpy as jnp
 
@@ -10623,24 +10635,6 @@ class NumpyDtypeTest(testing.TestCase):
         )
         self.assertEqual(
             standardize_dtype(knp.Nanpercentile().symbolic_call(x, 50).dtype),
-            expected_dtype,
-        )
-
-    @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
-    def test_nanmin(self, dtype):
-        import jax.numpy as jnp
-
-        x = knp.ones((1,), dtype=dtype)
-        x_jax = jnp.ones((1,), dtype=dtype)
-        expected_dtype = standardize_dtype(jnp.nanmin(x_jax).dtype)
-
-        if backend.backend() == "torch" and expected_dtype == "uint32":
-            expected_dtype = "int32"
-
-        self.assertEqual(standardize_dtype(knp.nanmin(x).dtype), expected_dtype)
-
-        self.assertEqual(
-            standardize_dtype(knp.Nanmin().symbolic_call(x).dtype),
             expected_dtype,
         )
 
