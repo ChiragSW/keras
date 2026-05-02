@@ -10617,7 +10617,7 @@ class NumpyDtypeTest(testing.TestCase):
             standardize_dtype(knp.Nanmin().symbolic_call(x).dtype),
             expected_dtype,
         )
-    
+
     @parameterized.named_parameters(named_product(dtype=ALL_DTYPES))
     def test_nanpercentile(self, dtype):
         import jax.numpy as jnp
